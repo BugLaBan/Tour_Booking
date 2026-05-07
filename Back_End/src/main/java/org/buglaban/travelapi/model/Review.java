@@ -4,7 +4,6 @@ package org.buglaban.travelapi.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.buglaban.travelapi.util.ReviewStatus;
 
 import java.time.LocalDateTime;
 

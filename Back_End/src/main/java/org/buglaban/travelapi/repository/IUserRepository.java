@@ -1,9 +1,7 @@
 package org.buglaban.travelapi.repository;
 
 import jakarta.validation.constraints.Email;
-import org.buglaban.travelapi.model.Role;
 import org.buglaban.travelapi.model.User;
-import org.buglaban.travelapi.util.UserType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

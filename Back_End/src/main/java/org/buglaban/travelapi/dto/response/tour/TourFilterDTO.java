@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.buglaban.travelapi.dto.response.CategoryDTO;
-import org.buglaban.travelapi.dto.response.ReviewDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

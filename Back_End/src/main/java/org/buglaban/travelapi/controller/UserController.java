@@ -3,19 +3,9 @@ package org.buglaban.travelapi.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.buglaban.travelapi.dto.request.ChangePasswordRequest;
-import org.buglaban.travelapi.dto.request.ChangeStatusRequest;
-import org.buglaban.travelapi.dto.request.LoginRequestDTO;
-import org.buglaban.travelapi.dto.request.RegisterRequestDTO;
-import org.buglaban.travelapi.dto.request.UserRequestDTO;
-import org.buglaban.travelapi.dto.response.LoginResponseDTO;
-import org.buglaban.travelapi.dto.response.PageResponse;
-import org.buglaban.travelapi.dto.response.ResponseData;
-import org.buglaban.travelapi.dto.response.ResponseFailure;
-import org.buglaban.travelapi.dto.response.UserDetailResponseDTO;
-import org.buglaban.travelapi.model.User;
+import org.buglaban.travelapi.dto.request.user.*;
+import org.buglaban.travelapi.dto.response.user.*;
 import org.buglaban.travelapi.service.IUserService;
-import org.buglaban.travelapi.util.UserStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,7 +30,7 @@ public class UserController {
     @PostMapping("login")
     public ResponseData<?> loginUser (@Valid @RequestBody LoginRequestDTO requestDTO){
         try {
-            LoginResponseDTO responseDTO = iUserService.userLogin(requestDTO);
+            LoginResponse responseDTO = iUserService.userLogin(requestDTO);
             return new ResponseData<>(HttpStatus.OK.value(), "Login successfully", responseDTO);
         } catch (Exception e) {
             log.error("errorMessage = {}", e.getMessage(), e.getCause());

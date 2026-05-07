@@ -1,5 +1,8 @@
 package org.buglaban.travelapi.util.specification;
-import jakarta.persistence.criteria.*;
+
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.buglaban.travelapi.dto.request.tour.TourFilterRequestDTO;
 import org.buglaban.travelapi.model.Tour;
 import org.buglaban.travelapi.model.TourSchedule;
@@ -8,6 +11,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
 import java.util.List;
+
 public class TourSpecification {
     public static Specification<Tour> filter(TourFilterRequestDTO req) {
         return (root, query, cb) -> {
@@ -55,12 +59,11 @@ public class TourSpecification {
             if (req.getAdultCount() != null && req.getAdultCount() > 0) {
                 Subquery<Long> sub = query.subquery(Long.class);
                 Root<TourSchedule> scheduleRoot = sub.from(TourSchedule.class);
-                Expression<Integer> bookedSeats = cb.coalesce(scheduleRoot.get("bookedSeats"), 0);
                 sub.select(scheduleRoot.get("tour").get("id"));
                 sub.where(
                         cb.equal(scheduleRoot.get("tour").get("id"), root.get("id")),
                         cb.greaterThanOrEqualTo(
-                                cb.diff(scheduleRoot.get("availableSeats"), bookedSeats),
+                                cb.diff(scheduleRoot.get("availableSeats"), scheduleRoot.get("bookedSeats")),
                                 req.getAdultCount()
                         )
                 );

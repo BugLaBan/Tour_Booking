@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.buglaban.travelapi.util.ScheduleStatus;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity

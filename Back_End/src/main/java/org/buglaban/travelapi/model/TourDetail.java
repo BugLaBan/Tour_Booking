@@ -1,6 +1,5 @@
 package org.buglaban.travelapi.model;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.*;
 import lombok.*;
 
