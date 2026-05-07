@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { AdminUser } from '../types';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { AdminUser } from "../types";
 
 interface AdminState {
   user: AdminUser | null;
@@ -15,16 +15,18 @@ export const useAdminStore = create<AdminState>()(
       user: null,
       isAuthenticated: false,
       login: (user) => {
-        localStorage.setItem('token', `session-${user.id}`);
+        if (user.token) {
+          localStorage.setItem("token", user.token);
+        }
         set({ user, isAuthenticated: true });
       },
       logout: () => {
-        localStorage.removeItem('token');
+        localStorage.removeItem("token");
         set({ user: null, isAuthenticated: false });
       },
     }),
     {
-      name: 'admin-storage',
-    }
-  )
+      name: "admin-storage",
+    },
+  ),
 );
