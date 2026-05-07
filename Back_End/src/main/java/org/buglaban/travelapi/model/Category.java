@@ -1,5 +1,5 @@
 package org.buglaban.travelapi.model;
-// CATEGORY ENTITY - Danh mục tour
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -37,7 +37,6 @@ public class Category extends AbstractEntity {
     @Column(name = "status")
     private CategoryStatus status = CategoryStatus.ACTIVE;
 
-    // Self-referencing relationship cho parent category
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Category parent;
@@ -45,8 +44,6 @@ public class Category extends AbstractEntity {
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<Category> children = new HashSet<>();
 
-    // Quan hệ One-to-Many với Tour
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<Tour> tours = new HashSet<>();
-
 }
