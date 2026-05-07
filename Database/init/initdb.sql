@@ -1133,6 +1133,16 @@ FROM (VALUES
     ) AS v(order_id, tour_id, tour_name,
     adult_price, adult_qty, child_price, child_qty, infant_price, infant_qty,
     dep_date, ret_date, subtotal);
+
+-- Keep demo schedules bookable for new database setups.
+-- Historical order_details above keep their original dates; current tour schedules move forward
+-- so customer checkout can still use the 30% deposit option.
+UPDATE public.tour_schedules
+SET
+    departure_date = (CURRENT_DATE + (((id % 12) + 2) * INTERVAL '14 days'))::date,
+    return_date = (CURRENT_DATE + (((id % 12) + 2) * INTERVAL '14 days'))::date + (return_date - departure_date),
+    updated_at = NOW();
+
 -- ============================================================
 -- ### 9. order_participants (60 records)
 -- ============================================================

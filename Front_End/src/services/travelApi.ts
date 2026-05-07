@@ -516,6 +516,35 @@ const formatDate = (value?: string | number[] | null) => {
   return date.toLocaleDateString("vi-VN");
 };
 
+const toRawDateString = (value?: string | number[] | null) => {
+  if (!value) {
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    const [year, month, day] = value;
+    if (!year || !month || !day) {
+      return undefined;
+    }
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  return value;
+};
+
+const isFutureBookableSchedule = (schedule: TourSchedule) => {
+  if (schedule.status !== "available" || schedule.availableSlots <= 0) {
+    return false;
+  }
+  const rawDate = schedule.rawDepartureDate || schedule.departureDate;
+  const parsed = toDateValue(rawDate);
+  if (!parsed) {
+    return true;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  parsed.setHours(0, 0, 0, 0);
+  return parsed.getTime() >= today.getTime();
+};
+
 const formatDateTime = (value?: string | number[] | null) => {
   if (!value) {
     return "Dang cap nhat";
@@ -699,12 +728,8 @@ const mapSchedule = (schedule: TourScheduleApi): TourSchedule => ({
   id: String(schedule.id ?? ""),
   departureDate: formatDate(schedule.departureDate),
   returnDate: formatDate(schedule.returnDate),
-  rawDepartureDate: Array.isArray(schedule.departureDate)
-    ? schedule.departureDate.join("-")
-    : schedule.departureDate,
-  rawReturnDate: Array.isArray(schedule.returnDate)
-    ? schedule.returnDate.join("-")
-    : schedule.returnDate,
+  rawDepartureDate: toRawDateString(schedule.departureDate),
+  rawReturnDate: toRawDateString(schedule.returnDate),
   availableSeats: parseNumber(schedule.availableSeats),
   bookedSeats: parseNumber(schedule.bookedSeats),
   availableSlots: parseNumber(
@@ -743,8 +768,17 @@ const mapSummaryToTour = (tour: PublicTourApi): Tour => ({
 });
 
 export const mapDetailToTour = (tour: TourDetailApi): Tour => {
-  const schedules = (tour.schedules ?? []).map(mapSchedule);
-  const firstSchedule = schedules[0];
+  const schedules = (tour.schedules ?? []).map(mapSchedule).sort((a, b) => {
+    const dateA =
+      toDateValue(a.rawDepartureDate || a.departureDate)?.getTime() ??
+      Number.MAX_SAFE_INTEGER;
+    const dateB =
+      toDateValue(b.rawDepartureDate || b.departureDate)?.getTime() ??
+      Number.MAX_SAFE_INTEGER;
+    return dateA - dateB;
+  });
+  const firstSchedule =
+    schedules.find(isFutureBookableSchedule) ?? schedules[0];
 
   return {
     id: String(tour.id),
