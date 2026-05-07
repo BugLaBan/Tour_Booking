@@ -15,4 +15,6 @@ public interface ITourScheduleRepository extends JpaRepository <TourSchedule, Lo
     List<TourSchedule> findByTourId(Long tourId);
 
     List<TourSchedule> findByTourIdOrderByIdAsc(Long tourId);
+
+    List<TourSchedule> findByTourIdOrderByDepartureDateAsc(Long tourId);
 }

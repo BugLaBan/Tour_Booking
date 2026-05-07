@@ -11,13 +11,55 @@ import {
   Minus,
 } from "lucide-react";
 import { useCartStore } from "../store/useCartStore";
-import type { Tour } from "../types";
+import type { Tour, TourSchedule } from "../types";
 import {
   calculateTourPrice,
   fetchTourDetail,
   type TourPriceQuote,
 } from "../services/travelApi";
 import SafeImage from "../components/common/SafeImage";
+
+const parseScheduleDate = (value?: string) => {
+  if (!value) {
+    return null;
+  }
+
+  const direct = new Date(value);
+  if (!Number.isNaN(direct.getTime())) {
+    return direct;
+  }
+
+  const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, day, month, year] = match;
+  const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const isScheduleBookable = (schedule?: TourSchedule) => {
+  if (
+    !schedule ||
+    schedule.status !== "available" ||
+    schedule.availableSlots <= 0
+  ) {
+    return false;
+  }
+
+  const departureDate = parseScheduleDate(
+    schedule.rawDepartureDate || schedule.departureDate,
+  );
+  if (!departureDate) {
+    return true;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  departureDate.setHours(0, 0, 0, 0);
+  return departureDate.getTime() >= today.getTime();
+};
 
 const fallbackQuote = (
   tour: Tour | null,
@@ -140,6 +182,12 @@ const TourDetail = () => {
       tour?.schedules?.find((schedule) => schedule.id === selectedScheduleId),
     [selectedScheduleId, tour],
   );
+  const bookableSchedules = useMemo(
+    () => (tour?.schedules ?? []).filter(isScheduleBookable),
+    [tour],
+  );
+  const scheduleOptions =
+    bookableSchedules.length > 0 ? bookableSchedules : (tour?.schedules ?? []);
   const itineraryFallbackNote =
     selectedSchedule?.note ||
     tour?.schedules?.find((schedule) => schedule.note)?.note ||
@@ -164,8 +212,10 @@ const TourDetail = () => {
     selectedSchedule?.availableSlots ??
     tour?.remainingSlots ??
     0;
+  const isSelectedScheduleBookable = isScheduleBookable(selectedSchedule);
   const isBookable =
     Boolean(selectedScheduleId) &&
+    isSelectedScheduleBookable &&
     Boolean(priceQuote?.isAvailable ?? availableSlots >= totalPassengers);
 
   const handleAddToCart = () => {
@@ -175,7 +225,11 @@ const TourDetail = () => {
     }
 
     if (!isBookable) {
-      setMessage("So luong hanh khach vuot qua so cho con trong.");
+      setMessage(
+        isSelectedScheduleBookable
+          ? "So luong hanh khach vuot qua so cho con trong."
+          : "Lich khoi hanh nay da qua han, het cho hoac khong con mo dat cho.",
+      );
       return;
     }
 
@@ -267,44 +321,58 @@ const TourDetail = () => {
                 Lich Khoi Hanh
               </h2>
               <div className="grid gap-4 md:grid-cols-2">
-                {(tour.schedules ?? []).length === 0 ? (
+                {scheduleOptions.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-gray-500 md:col-span-2">
                     Tour nay chua co lich khoi hanh de dat cho.
                   </div>
                 ) : (
-                  (tour.schedules ?? []).map((schedule) => (
-                    <button
-                      key={schedule.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedScheduleId(schedule.id);
-                        setMessage("");
-                      }}
-                      className={`rounded-2xl border p-5 text-left transition ${
-                        selectedScheduleId === schedule.id
-                          ? "border-primary bg-primary/5 shadow-sm"
-                          : "border-gray-200 bg-gray-50 hover:border-primary/40"
-                      }`}
-                    >
-                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
-                        {schedule.status}
-                      </p>
-                      <h3 className="mt-2 text-lg font-bold text-gray-900">
-                        {schedule.departureDate}
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Ve ngay {schedule.returnDate}
-                      </p>
-                      <p className="mt-3 text-sm text-gray-600">
-                        Con {schedule.availableSlots} cho trong dot nay.
-                      </p>
-                      {schedule.note && (
-                        <p className="mt-3 text-sm leading-6 text-gray-500">
-                          {schedule.note}
+                  scheduleOptions.map((schedule) => {
+                    const canSelectSchedule = isScheduleBookable(schedule);
+                    return (
+                      <button
+                        key={schedule.id}
+                        type="button"
+                        onClick={() => {
+                          if (!canSelectSchedule) {
+                            return;
+                          }
+                          setSelectedScheduleId(schedule.id);
+                          setMessage("");
+                        }}
+                        disabled={!canSelectSchedule}
+                        className={`rounded-2xl border p-5 text-left transition ${
+                          selectedScheduleId === schedule.id
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : !canSelectSchedule
+                              ? "cursor-not-allowed border-gray-200 bg-gray-100 opacity-60"
+                              : "border-gray-200 bg-gray-50 hover:border-primary/40"
+                        }`}
+                      >
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+                          {schedule.status}
                         </p>
-                      )}
-                    </button>
-                  ))
+                        <h3 className="mt-2 text-lg font-bold text-gray-900">
+                          {schedule.departureDate}
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Ve ngay {schedule.returnDate}
+                        </p>
+                        <p className="mt-3 text-sm text-gray-600">
+                          Con {schedule.availableSlots} cho trong dot nay.
+                        </p>
+                        {!canSelectSchedule && (
+                          <p className="mt-3 text-xs font-semibold text-amber-600">
+                            Lich nay khong con mo dat cho.
+                          </p>
+                        )}
+                        {schedule.note && (
+                          <p className="mt-3 text-sm leading-6 text-gray-500">
+                            {schedule.note}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -447,8 +515,12 @@ const TourDetail = () => {
                     }}
                     className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                   >
-                    {(tour.schedules ?? []).map((schedule) => (
-                      <option key={schedule.id} value={schedule.id}>
+                    {scheduleOptions.map((schedule) => (
+                      <option
+                        key={schedule.id}
+                        value={schedule.id}
+                        disabled={!isScheduleBookable(schedule)}
+                      >
                         {schedule.departureDate} - con {schedule.availableSlots}{" "}
                         cho
                       </option>

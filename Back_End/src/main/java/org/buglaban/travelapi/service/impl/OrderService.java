@@ -115,6 +115,12 @@ public class OrderService implements IOrderService {
             if (!schedule.getTour().getId().equals(tour.getId())) {
                 throw new DataNotFoundException("Selected schedule does not belong to this tour");
             }
+            if (schedule.getStatus() != ScheduleStatus.AVAILABLE) {
+                throw new DataNotFoundException("Selected schedule is not available for booking");
+            }
+            if (schedule.getDepartureDate() == null || schedule.getDepartureDate().isBefore(LocalDate.now())) {
+                throw new DataNotFoundException("Selected schedule has already departed");
+            }
 
             int occupiedSeats = safeInteger(item.getAdultQuantity())
                     + safeInteger(item.getChildQuantity());
