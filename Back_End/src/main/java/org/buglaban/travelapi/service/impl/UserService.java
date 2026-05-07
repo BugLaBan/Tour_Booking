@@ -1,25 +1,30 @@
 package org.buglaban.travelapi.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.buglaban.travelapi.dto.request.ChangePasswordRequest;
-import org.buglaban.travelapi.dto.request.LoginRequestDTO;
-import org.buglaban.travelapi.dto.request.RegisterRequestDTO;
-import org.buglaban.travelapi.dto.request.UserRequestDTO;
-import org.buglaban.travelapi.dto.response.LoginResponseDTO;
-import org.buglaban.travelapi.dto.response.PageResponse;
-import org.buglaban.travelapi.dto.response.UserDetailResponseDTO;
+import org.buglaban.travelapi.components.JwtTokenUtils;
+import org.buglaban.travelapi.dto.request.user.ChangePasswordRequest;
+import org.buglaban.travelapi.dto.request.user.LoginRequestDTO;
+import org.buglaban.travelapi.dto.request.user.RegisterRequestDTO;
+import org.buglaban.travelapi.dto.request.user.UserRequestDTO;
+import org.buglaban.travelapi.dto.response.user.LoginResponse;
+import org.buglaban.travelapi.dto.response.user.PageResponse;
+import org.buglaban.travelapi.dto.response.user.UserDetailResponseDTO;
 import org.buglaban.travelapi.exception.DataNotFoundException;
 import org.buglaban.travelapi.model.Role;
 import org.buglaban.travelapi.model.User;
 import org.buglaban.travelapi.repository.IRoleRepository;
 import org.buglaban.travelapi.repository.IUserRepository;
-import org.buglaban.travelapi.security.JwtService;
 import org.buglaban.travelapi.service.IUserService;
 import org.buglaban.travelapi.util.UserStatus;
 import org.buglaban.travelapi.util.UserType;
+//import org.springframework.security.crypto.password.PasswordEncoder;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+//import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -33,7 +38,8 @@ public class UserService implements IUserService {
     private final IRoleRepository iRoleRepository;
     private final ModelMapper mapper;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
+    private final JwtTokenUtils jwtTokenUtils;
 
     @Override
     public long userRegister(RegisterRequestDTO requestDTO) {
@@ -54,26 +60,28 @@ public class UserService implements IUserService {
     }
 
     @Override
-    public LoginResponseDTO userLogin(LoginRequestDTO requestDTO) {
+    public LoginResponse userLogin(LoginRequestDTO requestDTO) throws DataNotFoundException {
         Optional<User> optionalUser = iUserRepository.findByEmail(requestDTO.getEmail());
         if(optionalUser.isEmpty()) {
             throw new DataNotFoundException("Wrong email number or password");
         }
-
+        Role userRole = iRoleRepository.getRoleByIdUser(requestDTO.getEmail());
         User user = optionalUser.get();
-        if (!passwordMatches(requestDTO.getPassword(), user.getPasswordHash())) {
-            throw new DataNotFoundException("Wrong email number or password");
+        if (!passwordEncoder.matches(requestDTO.getPassword(), user.getPasswordHash())){
+            new BadCredentialsException("Wrong email number or password");
         }
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                requestDTO.getEmail(),requestDTO.getPassword(), user.getAuthorities()
+        );
 
-        return LoginResponseDTO.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .avatarUrl(user.getAvatarUrl())
-                .role(user.getRole() != null ? user.getRole().getRoleName().name() : null)
-                .accessToken(jwtService.generateToken(user))
-                .tokenType("Bearer")
-                .build();
+        authenticationManager.authenticate(authenticationToken);
+        String token = null;
+        try {
+            token = jwtTokenUtils.generateToken(user);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return new LoginResponse(token, userRole.getRoleName().name(), user.getFullName());
     }
 
     @Override
@@ -98,9 +106,9 @@ public class UserService implements IUserService {
 
     @Override
     public UserDetailResponseDTO getUser(long userId) {
-        User user = iUserRepository.findById(userId)
-                .orElseThrow(() -> new DataNotFoundException("User not found"));
-        return toUserDetailResponse(user);
+        User user = iUserRepository.findById(userId).get();
+        UserDetailResponseDTO responseDTO = mapper.map(user, UserDetailResponseDTO.class);
+        return responseDTO;
     }
 
     @Override
@@ -116,17 +124,27 @@ public class UserService implements IUserService {
     }
 
     @Override
-    public PageResponse<?> getAllUser(int pageNo, int pageSize) {
+    public PageResponse<UserDetailResponseDTO> getAllUser(int pageNo, int pageSize) {
         Page<User> pageUsers = iUserRepository.findAll(PageRequest.of(pageNo, pageSize));
-        List<UserDetailResponseDTO> responseDTO = pageUsers.stream()
-                .map(this::toUserDetailResponse)
+        List<UserDetailResponseDTO> responseDTO = pageUsers.getContent().stream()
+                .map(user -> UserDetailResponseDTO.builder()
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .passwordHash(user.getPasswordHash())
+                .phone(user.getPhone())
+                .avatarUrl(user.getAvatarUrl())
+                .dateOfBirth(user.getDateOfBirth())
+                .gender(user.getGender())
+                .address(user.getAddress())
+                .build())
                 .toList();
 
-        return PageResponse.builder()
+        return PageResponse.<UserDetailResponseDTO>builder()
                 .page(pageNo)
                 .pageSize(pageSize)
                 .totalPage(pageUsers.getTotalPages())
-                .item(responseDTO)
+                .totalElements(pageUsers.getTotalElements())
+                .items(responseDTO)
                 .build();
     }
 
@@ -136,38 +154,10 @@ public class UserService implements IUserService {
         if (user.isEmpty()) {
             throw new DataNotFoundException("Data not found");
         }
-        if (passwordMatches(changePasswordRequest.getOldPassword(), user.get().getPasswordHash())) {
+        if (user.get().getPasswordHash().equals(changePasswordRequest.getOldPassword())) {
             User us = user.get();
-            us.setPasswordHash(passwordEncoder.encode(changePasswordRequest.getNewPassword()));
+            us.setPasswordHash(changePasswordRequest.getNewPassword());
             iUserRepository.save(us);
         }
-    }
-
-    private boolean passwordMatches(String rawPassword, String storedPassword) {
-        if (storedPassword == null) {
-            return false;
-        }
-        if (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2y$")) {
-            return passwordEncoder.matches(rawPassword, storedPassword);
-        }
-        return storedPassword.equals(rawPassword);
-    }
-
-    private UserDetailResponseDTO toUserDetailResponse(User user) {
-        return UserDetailResponseDTO.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .passwordHash(user.getPasswordHash())
-                .phone(user.getPhone())
-                .avatarUrl(user.getAvatarUrl())
-                .dateOfBirth(user.getDateOfBirth())
-                .gender(user.getGender())
-                .address(user.getAddress())
-                .status(user.getStatus())
-                .role(user.getRole() != null ? user.getRole().getRoleName().name() : null)
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
-                .build();
     }
 }

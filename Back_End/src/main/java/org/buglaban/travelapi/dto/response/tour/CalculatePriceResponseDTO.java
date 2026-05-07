@@ -1,7 +1,8 @@
 package org.buglaban.travelapi.dto.response.tour;
 
-import java.math.BigDecimal;
 import lombok.*;
+
+import java.math.BigDecimal;
 
 @Getter
 @Setter

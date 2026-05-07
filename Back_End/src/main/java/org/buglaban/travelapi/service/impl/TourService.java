@@ -14,12 +14,14 @@ import org.buglaban.travelapi.util.ScheduleStatus;
 import org.buglaban.travelapi.util.TourStatus;
 import org.buglaban.travelapi.util.specification.TourSpecification;
 import org.modelmapper.ModelMapper;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -75,18 +77,11 @@ public class TourService implements ITourService {
         TourSchedule schedule = scheduleRepository.findById(req.getScheduleId())
                 .orElseThrow(() -> new DataNotFoundException("Schedule not found"));
 
-        if (!schedule.getTour().getId().equals(tour.getId())) {
-            throw new DataNotFoundException("Selected schedule does not belong to this tour");
-        }
-
         int availableSeats = schedule.getAvailableSeats() != null ? schedule.getAvailableSeats() : 0;
         int bookedSeats = schedule.getBookedSeats() != null ? schedule.getBookedSeats() : 0;
         int availableSlots = Math.max(0, availableSeats - bookedSeats);
         int totalPax = req.getAdultQty() + req.getChildQty();
-        boolean isAvailable = schedule.getStatus() == ScheduleStatus.AVAILABLE
-                && schedule.getDepartureDate() != null
-                && !schedule.getDepartureDate().isBefore(LocalDate.now())
-                && availableSlots >= totalPax;
+        boolean isAvailable = availableSlots >= totalPax;
 
         BigDecimal adultSub = tour.getAdultPrice().multiply(BigDecimal.valueOf(req.getAdultQty()));
         BigDecimal childSub = tour.getChildPrice() != null
@@ -340,7 +335,7 @@ public class TourService implements ITourService {
 
     @Override
     public List<TourScheduleDTO> getSchedulesByTour(Long tourId) {
-        return scheduleRepository.findByTourIdOrderByDepartureDateAsc(tourId)
+        return scheduleRepository.findByTourId(tourId)
                 .stream().map(this::toScheduleDTO).collect(Collectors.toList());
     }
 
@@ -387,7 +382,7 @@ public class TourService implements ITourService {
                         .build())
                 .collect(Collectors.toList());
 
-        List<TourScheduleDTO> schedules = scheduleRepository.findByTourIdOrderByDepartureDateAsc(tour.getId())
+        List<TourScheduleDTO> schedules = scheduleRepository.findByTourId(tour.getId())
                 .stream().map(this::toScheduleDTO).collect(Collectors.toList());
 
         long totalReviews = tour.getReviews() == null ? 0L : tour.getReviews().size();
