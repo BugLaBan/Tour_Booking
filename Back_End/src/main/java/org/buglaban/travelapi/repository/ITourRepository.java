@@ -36,6 +36,7 @@ public interface ITourRepository extends JpaRepository<Tour, Long>, JpaSpecifica
 
     List<Tour> findByCreatedAtAfter(LocalDateTime date);
     Page<Tour> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end, Pageable pageable);
+    
     // hoặc
     @Query("SELECT t FROM Tour t WHERE t.createdAt > :date")
     List<Tour> findRecentTours(@Param("date") LocalDateTime date);
