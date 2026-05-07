@@ -10,6 +10,7 @@ import java.util.List;
 
 @Repository
 public interface ITourScheduleRepository extends JpaRepository <TourSchedule, Long> {
+    
     Long countByTourIdAndStatus(Long id, ScheduleStatus scheduleStatus);
 
     List<TourSchedule> findByTourId(Long tourId);
