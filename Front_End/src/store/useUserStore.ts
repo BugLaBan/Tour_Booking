@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { UserSession } from '../services/travelApi';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { UserSession } from "../services/travelApi";
 
 interface UserState {
   user: UserSession | null;
@@ -18,17 +18,23 @@ export const useUserStore = create<UserState>()(
       user: null,
       isAuthenticated: false,
       redirectAfterLogin: null,
-      login: (user) =>
+      login: (user) => {
+        if (user.token) {
+          localStorage.setItem("token", user.token);
+        }
         set({
           user,
           isAuthenticated: true,
-        }),
-      logout: () =>
+        });
+      },
+      logout: () => {
+        localStorage.removeItem("token");
         set({
           user: null,
           isAuthenticated: false,
           redirectAfterLogin: null,
-        }),
+        });
+      },
       setRedirectAfterLogin: (path) =>
         set({
           redirectAfterLogin: path,
@@ -39,7 +45,7 @@ export const useUserStore = create<UserState>()(
         })),
     }),
     {
-      name: 'user-storage',
+      name: "user-storage",
     },
   ),
 );
